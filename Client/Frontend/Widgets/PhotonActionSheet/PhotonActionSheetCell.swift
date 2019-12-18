@@ -92,8 +92,6 @@ class PhotonActionSheetCell: UITableViewCell {
             foreground.image = on ? UIImage(named: "menu-customswitch-on") : UIImage(named: "menu-customswitch-off")
             mainView.accessibilityIdentifier = on ? "enabled" : "disabled"
             mainView.tintColor = on ? UIColor.theme.general.controlTint : UIColor.Photon.Grey40
-            
-            
         }
     }
 
