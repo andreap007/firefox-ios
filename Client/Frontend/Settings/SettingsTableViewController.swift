@@ -53,6 +53,8 @@ class Setting: NSObject {
 
     var accessoryType: UITableViewCell.AccessoryType { return .none }
 
+    var accessoryView: UIImageView? { return nil }
+
     var textAlignment: NSTextAlignment { return .natural }
 
     var image: UIImage? { return _image }
@@ -69,10 +71,10 @@ class Setting: NSObject {
         cell.detailTextLabel?.numberOfLines = 0
         cell.textLabel?.assign(attributed: title)
         cell.textLabel?.textAlignment = textAlignment
-        cell.textLabel?.numberOfLines = 1
+        cell.textLabel?.numberOfLines = 0
         cell.textLabel?.lineBreakMode = .byTruncatingTail
         cell.accessoryType = accessoryType
-        cell.accessoryView = nil
+        cell.accessoryView = accessoryView
         cell.selectionStyle = enabled ? .default : .none
         cell.accessibilityIdentifier = accessibilityIdentifier
         cell.imageView?.image = _image
@@ -88,6 +90,12 @@ class Setting: NSObject {
         cell.accessibilityTraits = UIAccessibilityTraits.button
         cell.indentationWidth = 0
         cell.layoutMargins = .zero
+        
+        let backgroundView = UIView()
+        backgroundView.backgroundColor = UIColor.theme.tableView.selectedBackground
+        backgroundView.bounds = cell.bounds
+        cell.selectedBackgroundView = backgroundView
+        
         // So that the separator line goes all the way to the left edge.
         cell.separatorInset = .zero
         if let cell = cell as? ThemedTableViewCell {
@@ -269,7 +277,10 @@ class StringPrefSetting: StringSetting {
 }
 
 class WebPageSetting: StringPrefSetting {
-    init(prefs: Prefs, prefKey: String, defaultValue: String? = nil, placeholder: String, accessibilityIdentifier: String, settingDidChange: ((String?) -> Void)? = nil) {
+    let isChecked: () -> Bool
+
+    init(prefs: Prefs, prefKey: String, defaultValue: String? = nil, placeholder: String, accessibilityIdentifier: String, isChecked: @escaping () -> Bool = { return false }, settingDidChange: ((String?) -> Void)? = nil) {
+        self.isChecked = isChecked
         super.init(prefs: prefs,
                    prefKey: prefKey,
                    defaultValue: defaultValue,
@@ -291,7 +302,7 @@ class WebPageSetting: StringPrefSetting {
 
     override func onConfigureCell(_ cell: UITableViewCell) {
         super.onConfigureCell(cell)
-        cell.accessoryType = .checkmark
+        cell.accessoryType = isChecked() ? .checkmark : .none
         textField.textAlignment = .left
     }
 
@@ -358,8 +369,10 @@ class StringSetting: Setting, UITextFieldDelegate {
             make.trailing.equalTo(cell.contentView).offset(-Padding)
             make.leading.equalTo(cell.contentView).offset(Padding)
         }
-        textField.text = self.persister.readPersistedValue() ?? defaultValue
-        textFieldDidChange(textField)
+        if let value = self.persister.readPersistedValue() {
+            textField.text = value
+            textFieldDidChange(textField)
+        }
     }
 
     override func onClick(_ navigationController: UINavigationController?) {
@@ -587,8 +600,6 @@ class SettingsTableViewController: ThemedTableViewController {
     var profile: Profile!
     var tabManager: TabManager!
 
-    var hasSectionSeparatorLine = true
-
     /// Used to calculate cell heights.
     fileprivate lazy var dummyToggleCell: UITableViewCell = {
         let cell = UITableViewCell(style: .subtitle, reuseIdentifier: "dummyCell")
@@ -707,12 +718,6 @@ class SettingsTableViewController: ThemedTableViewController {
         if let sectionTitle = sectionSetting.title?.string {
             headerView.titleLabel.text = sectionTitle.uppercased()
         }
-        // Hide the top border for the top section to avoid having a double line at the top
-        if section == 0 || !hasSectionSeparatorLine {
-            headerView.showTopBorder = false
-        } else {
-            headerView.showTopBorder = true
-        }
 
         headerView.applyTheme()
         return headerView
@@ -726,7 +731,6 @@ class SettingsTableViewController: ThemedTableViewController {
         let footerView = ThemedTableSectionHeaderFooterView()
         footerView.titleLabel.text = sectionFooter
         footerView.titleAlignment = .top
-        footerView.showBottomBorder = false
         footerView.applyTheme()
         return footerView
     }

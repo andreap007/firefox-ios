@@ -55,7 +55,8 @@ class TabLocationView: UIView {
             }
             updateTextWithURL()
             pageOptionsButton.isHidden = (url == nil)
-            trackingProtectionButton.isHidden = lockImageView.isHidden
+
+            trackingProtectionButton.isHidden = !["https", "http"].contains(url?.scheme ?? "")
             setNeedsUpdateConstraints()
         }
     }
@@ -100,6 +101,7 @@ class TabLocationView: UIView {
         urlTextField.accessibilityActionsSource = self
         urlTextField.font = UIConstants.DefaultChromeFont
         urlTextField.backgroundColor = .clear
+        urlTextField.accessibilityLabel = "Address Bar"
 
         // Remove the default drop interaction from the URL text field so that our
         // custom drop interaction on the BVC can accept dropped URLs.
@@ -203,6 +205,8 @@ class TabLocationView: UIView {
 
         // Link these so they hide/show in-sync.
         trackingProtectionButton.separatorLine = separatorLineForTP
+
+        pageOptionsButton.separatorLine = separatorLineForPageOptions
 
         let subviews = [trackingProtectionButton, separatorLineForTP, space10px, lockImageView, urlTextField, readerModeButton, separatorLineForPageOptions, pageOptionsButton]
         contentView = UIStackView(arrangedSubviews: subviews)
@@ -388,11 +392,13 @@ extension TabLocationView: TabEventHandler {
     private func updateBlockerStatus(forTab tab: Tab) {
         assertIsMainThread("UI changes must be on the main thread")
         guard let blocker = tab.contentBlocker else { return }
+        trackingProtectionButton.alpha = 1.0
         switch blocker.status {
         case .Blocking:
             trackingProtectionButton.setImage(UIImage(imageLiteralResourceName: "tracking-protection-active-block"), for: .normal)
         case .NoBlockedURLs:
             trackingProtectionButton.setImage(UIImage.templateImageNamed("tracking-protection"), for: .normal)
+            trackingProtectionButton.alpha = 0.5
         case .Whitelisted:
             trackingProtectionButton.setImage(UIImage.templateImageNamed("tracking-protection-off"), for: .normal)
         case .Disabled:
@@ -402,11 +408,11 @@ extension TabLocationView: TabEventHandler {
 
     func tabDidGainFocus(_ tab: Tab) {
         updateBlockerStatus(forTab: tab)
-        menuBadge.show(tab.desktopSite)
+        menuBadge.show(tab.changedUserAgent)
     }
 
     func tabDidToggleDesktopMode(_ tab: Tab) {
-        menuBadge.show(tab.desktopSite)
+        menuBadge.show(tab.changedUserAgent)
     }
 }
 

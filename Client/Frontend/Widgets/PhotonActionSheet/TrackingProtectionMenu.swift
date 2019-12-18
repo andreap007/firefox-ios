@@ -4,9 +4,11 @@
 
 import Shared
 
-public struct NestedTableView {
+public struct NestedTableViewDelegate {
     var dataSource: UITableViewDataSource & UITableViewDelegate
 }
+
+fileprivate var nestedTableView: UITableView?
 
 class NestedTableDataSource: NSObject, UITableViewDataSource, UITableViewDelegate {
     var data = [String]()
@@ -34,7 +36,7 @@ class NestedTableDataSource: NSObject, UITableViewDataSource, UITableViewDelegat
     }
 }
 
-fileprivate var nestedTableViewDomainList: NestedTableView?
+fileprivate var nestedTableViewDomainList: NestedTableViewDelegate?
 
 extension PhotonActionSheetProtocol {
     @available(iOS 11.0, *)
@@ -68,7 +70,7 @@ extension PhotonActionSheetProtocol {
 
         var moreInfo = PhotonActionSheetItem(title: "", text: Strings.TPBlockingMoreInfo, iconString: "menu-Info") { _, _ in
             let url = SupportUtils.URLForTopic("tracking-protection-ios")!
-            tab.loadRequest(PrivilegedRequest(url: url) as URLRequest)
+            tab.loadRequest(URLRequest(url: url))
         }
         moreInfo.customHeight = { _ in
             return PhotonActionSheetUX.RowHeight + 20
@@ -87,30 +89,32 @@ extension PhotonActionSheetProtocol {
             data += Array(stats.domains[category] ?? Set<String>())
         }
 
-        nestedTableViewDomainList = NestedTableView(dataSource: NestedTableDataSource(data: data))
+        nestedTableViewDomainList = NestedTableViewDelegate(dataSource: NestedTableDataSource(data: data))
 
         var list = PhotonActionSheetItem(title: "")
         list.customRender = { _, contentView in
-            if contentView.viewWithTag(999) != nil { return }
+            if nestedTableView != nil {
+                nestedTableView?.removeFromSuperview()
+            }
             let tv = UITableView(frame: .zero, style: .plain)
             tv.dataSource = nestedTableViewDomainList?.dataSource
             tv.delegate = nestedTableViewDomainList?.dataSource
             tv.allowsSelection = false
-            tv.tag = 999
+            tv.backgroundColor = .clear
+            tv.separatorStyle = .none
+
             contentView.addSubview(tv)
             tv.snp.makeConstraints { make in
                 make.edges.equalTo(contentView)
             }
-
-            tv.backgroundColor = .clear
-            tv.separatorStyle = .none
+            nestedTableView = tv
         }
 
         list.customHeight = { _ in
             return PhotonActionSheetUX.RowHeight * 5
         }
 
-        let back = PhotonActionSheetItem(title: "Back", iconString: "goBack") { _, _ in
+        let back = PhotonActionSheetItem(title: Strings.BackTitle, iconString: "goBack") { _, _ in
             guard let urlbar = (self as? BrowserViewController)?.urlBar else { return }
             (self as? BrowserViewController)?.urlBarDidTapShield(urlbar)
         }
@@ -125,7 +129,7 @@ extension PhotonActionSheetProtocol {
 
         let actions = UIDevice.current.userInterfaceIdiom == .pad ? [[back], [info], [list]] : [[info], [list], [back]]
 
-        self.presentSheetWith(title: title, actions: actions, on: bvc, from: urlbar, autoreverseActions: false)
+        self.presentSheetWith(title: title, actions: actions, on: bvc, from: urlbar)
     }
 
     @available(iOS 11.0, *)
@@ -142,19 +146,19 @@ extension PhotonActionSheetProtocol {
             return PhotonActionSheetUX.RowHeight - 10
         }
 
-        let xsitecookies = PhotonActionSheetItem(title: Strings.TPListTitle_CrossSiteCookies, iconString: "tp-cookie", accessory: .Disclosure) { action, _ in
+        let xsitecookies = PhotonActionSheetItem(title: Strings.TPCrossSiteCookiesBlocked, iconString: "tp-cookie", accessory: .Disclosure) { action, _ in
             let desc = Strings.TPCategoryDescriptionCrossSite
             self.showDomainTable(title: action.title, description: desc, blocker: blocker, categories: [BlocklistCategory.advertising, BlocklistCategory.analytics])
         }
-        let social = PhotonActionSheetItem(title: Strings.TPListTitle_Social, iconString: "tp-socialtracker", accessory: .Disclosure) { action,  _ in
+        let social = PhotonActionSheetItem(title: Strings.TPSocialBlocked, iconString: "tp-socialtracker", accessory: .Disclosure) { action,  _ in
             let desc = Strings.TPCategoryDescriptionSocial
             self.showDomainTable(title: action.title, description: desc, blocker: blocker, categories: [BlocklistCategory.social])
         }
-        let fingerprinters = PhotonActionSheetItem(title: Strings.TPListTitle_Fingerprinters, iconString: "tp-fingerprinter", accessory: .Disclosure) { action, _ in
+        let fingerprinters = PhotonActionSheetItem(title: Strings.TPFingerprintersBlocked, iconString: "tp-fingerprinter", accessory: .Disclosure) { action, _ in
             let desc = Strings.TPCategoryDescriptionFingerprinters
             self.showDomainTable(title: action.title, description: desc, blocker: blocker, categories: [BlocklistCategory.fingerprinting])
         }
-        let cryptomining = PhotonActionSheetItem(title: Strings.TPListTitle_Cryptominer, iconString: "tp-cryptominer", accessory: .Disclosure) { action, _ in
+        let cryptomining = PhotonActionSheetItem(title: Strings.TPCryptominersBlocked, iconString: "tp-cryptominer", accessory: .Disclosure) { action, _ in
             let desc = Strings.TPCategoryDescriptionCryptominers
             self.showDomainTable(title: action.title, description: desc, blocker: blocker, categories: [BlocklistCategory.cryptomining])
         }
@@ -218,7 +222,24 @@ extension PhotonActionSheetProtocol {
 
         if items[0].count == 1 {
             // no items were blocked
-            let noblockeditems = PhotonActionSheetItem(title: Strings.TPPageMenuNoTrackersBlocked, accessory: .Text, bold: true)
+            var noblockeditems = PhotonActionSheetItem(title: "", accessory: .Text)
+            noblockeditems.customRender = { title, contentView in
+                let l = UILabel()
+                l.numberOfLines = 0
+                l.textAlignment = .center
+                l.textColor = UIColor.theme.tableView.headerTextLight
+                l.text = Strings.TPPageMenuNoTrackersBlocked
+                l.accessibilityIdentifier = "tp.no-trackers-blocked"
+                contentView.addSubview(l)
+                l.snp.makeConstraints { make in
+                    make.center.equalToSuperview()
+                    make.width.equalToSuperview().inset(40)
+                }
+            }
+            noblockeditems.customHeight = { _ in
+                return 180
+            }
+
             items = [[noblockeditems]]
         }
 

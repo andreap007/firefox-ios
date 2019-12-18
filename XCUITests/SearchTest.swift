@@ -17,8 +17,10 @@ private let SuggestedSite6: String = "foobar bit perfect"
 
 class SearchTests: BaseTestCase {
     private func typeOnSearchBar(text: String) {
-        waitForExistence(app.textFields["address"])
-        app.textFields["address"].typeText(text)
+        waitForExistence(app.textFields.firstMatch, timeout: 10)
+        app.textFields.firstMatch.tap()
+        app.textFields.firstMatch.tap()
+        app.textFields.firstMatch.typeText(text)
     }
 
     private func suggestionsOnOff() {
@@ -114,7 +116,7 @@ class SearchTests: BaseTestCase {
             }
         }
     }
-
+    /* Disabled due to issue 5581
     func testCopyPasteComplete() {
         // Copy, Paste and Go to url
         navigator.goto(URLBarOpen)
@@ -150,7 +152,7 @@ class SearchTests: BaseTestCase {
         waitForValueContains(app.textFields["address"], value: "mozilla.org")
         let value = app.textFields["address"].value
         XCTAssertEqual(value as? String, "mozilla.org")
-    }
+    }*/
 
     private func changeSearchEngine(searchEngine: String) {
         navigator.goto(SearchSettings)
@@ -205,7 +207,7 @@ class SearchTests: BaseTestCase {
         waitForExistence(app.textFields["url"], timeout: 10)
         app.typeText("foo bar")
         app.typeText(XCUIKeyboardKey.return.rawValue)
-        waitForExistence(app.textFields["url"], timeout: 10)
+        waitForExistence(app.textFields["url"], timeout: 20)
         waitForValueContains(app.textFields["url"], value: "google")
     }
 }
