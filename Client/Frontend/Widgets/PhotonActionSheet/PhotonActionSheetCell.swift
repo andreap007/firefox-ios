@@ -87,7 +87,7 @@ class PhotonActionSheetCell: UITableViewCell {
             mainView.addSubview(foreground)
             setOn(false)
         }
-        
+
         func setOn(_ on: Bool) {
             foreground.image = on ? UIImage(named: "menu-customswitch-on") : UIImage(named: "menu-customswitch-off")
             mainView.accessibilityIdentifier = on ? "enabled" : "disabled"
